@@ -27,8 +27,9 @@
     const CONFIG = {
         api: 'https://7tv.io/v3/emote-sets/global',
         cdn: 'https://cdn.7tv.app/emote/',
-        cacheKey: 'simpleLegion7TV_cache_v2',
+        cacheKey: 'simpleLegion7TV_cache_v3',
         cacheTime: 6 * 60 * 60 * 1000,
+        channel: 'ZakvielChannel',
 
         chat: '.cy-chat-l',
         input: 'form.cy-chat-f input[type="text"]',
@@ -80,55 +81,97 @@
 
     async function loadEmotes() {
         try {
-            const cached = localStorage.getItem(CONFIG.cacheKey);
-    
-            if (cached) {
-                const data = JSON.parse(cached);
-    
-                if (
-                    Date.now() - data.time < CONFIG.cacheTime &&
-                    Array.isArray(data.emotes) &&
-                    data.emotes.length > 0
-                ) {
-                    setEmotes(data.emotes);
-                    console.log(`[7TV] Cache loaded: ${emotes.size}`);
-                    return;
-                }
-            }
-        } catch (error) {
-            console.warn('[7TV] Cache error:', error);
-        }
-    
-        try {
             console.log('[7TV] Loading global emotes...');
     
-            const data = await requestJson(CONFIG.api);
+            const globalData = await requestJson(CONFIG.api);
     
-            if (!Array.isArray(data.emotes)) {
-                throw new Error('Invalid API response');
+            if (!Array.isArray(globalData.emotes)) {
+                throw new Error('Invalid global emote response');
             }
     
-            setEmotes(data.emotes);
-
-            console.log('[7TV] First emote:', emotes.values().next().value);
+            let channelEmotes = [];
     
-            if (emotes.size === 0) {
-                throw new Error('API returned an empty emote list');
+            try {
+                console.log(`[7TV] Searching channel: ${CONFIG.channel}`);
+    
+                const searchData = await requestJson(
+                    `https://7tv.io/v3/users?query=${encodeURIComponent(CONFIG.channel)}`
+                );
+    
+                const users = Array.isArray(searchData)
+                    ? searchData
+                    : searchData.users || [];
+    
+                const user = users.find(user =>
+                    user.username?.toLowerCase() === CONFIG.channel.toLowerCase() ||
+                    user.connections?.some(connection =>
+                        connection.username?.toLowerCase() === CONFIG.channel.toLowerCase()
+                    )
+                );
+    
+                if (!user) {
+                    throw new Error('7TV channel user not found');
+                }
+    
+                const twitch = user.connections?.find(connection =>
+                    String(connection.platform).toLowerCase() === 'twitch'
+                );
+    
+                if (!twitch?.id) {
+                    throw new Error('Twitch connection not found');
+                }
+    
+                const connectionData = await requestJson(
+                    `https://7tv.io/v3/users/twitch/${encodeURIComponent(twitch.id)}`
+                );
+    
+                let channelSet = connectionData.emote_set;
+    
+                if (!channelSet && connectionData.emote_set_id) {
+                    channelSet = await requestJson(
+                        `https://7tv.io/v3/emote-sets/${connectionData.emote_set_id}`
+                    );
+                }
+    
+                channelEmotes = channelSet?.emotes || [];
+    
+                console.log(
+                    `[7TV] ZakvielChannel emotes: ${channelEmotes.length}`
+                );
+    
+            } catch (error) {
+                console.warn('[7TV] Channel emotes unavailable:', error);
             }
+    
+            // Global + channel emotes.
+            // Channel emotes take priority when names match.
+            const combined = new Map();
+    
+            for (const emote of globalData.emotes) {
+                combined.set(emote.name, emote);
+            }
+    
+            for (const emote of channelEmotes) {
+                combined.set(emote.name, emote);
+            }
+    
+            const allEmotes = [...combined.values()];
+    
+            setEmotes(allEmotes);
     
             localStorage.setItem(CONFIG.cacheKey, JSON.stringify({
                 time: Date.now(),
-                emotes: data.emotes
+                emotes: allEmotes
             }));
     
-            console.log(`[7TV] Successfully loaded ${emotes.size} emotes`);
+            console.log(`[7TV] Total emotes: ${emotes.size}`);
     
         } catch (error) {
             console.error('[7TV] Loading failed:', error);
         }
     }
     
-        function setEmotes(list) {
+    function setEmotes(list) {
         emotes.clear();
     
         for (const item of list) {
@@ -171,26 +214,6 @@
                 name,
                 url: imageUrl
             });
-        }
-
-        console.log('[7TV DEBUG] First emote:', [...emotes.values()][0]);
-
-        const first = [...emotes.values()][0];
-        
-        if (first) {
-            console.log('[7TV DEBUG] Image URL:', first.url);
-        
-            const testImage = new Image();
-        
-            testImage.onload = () => {
-                console.log('[7TV DEBUG] Image loaded:', testImage.naturalWidth);
-            };
-        
-            testImage.onerror = () => {
-                console.error('[7TV DEBUG] Image failed:', first.url);
-            };
-        
-            testImage.src = first.url;
         }
     
         emoteNames = [...emotes.keys()]
@@ -528,6 +551,17 @@
             text-align: center;
             padding: 15px 0;
             grid-column: 1 / -1;
+        }
+
+        .s7tv-emote {
+            display: inline-block !important;
+            width: auto !important;
+            height: 1.35em !important;
+            max-width: 3em !important;
+            max-height: 1.35em !important;
+            vertical-align: -0.25em !important;
+            object-fit: contain !important;
+            margin: 0 2px !important;
         }
         `;
 
