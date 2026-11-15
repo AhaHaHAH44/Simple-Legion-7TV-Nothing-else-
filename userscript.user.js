@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Simple Legion 7TV
 // @namespace    https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-
-// @version      1.2.0
+// @version      1.3.0
 // @description  Minimal 7TV emote support for Legion Game
 // @author       Sectwi1l
 // @homepageURL  https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-
@@ -55,6 +55,7 @@
     // MEOW NOTIFICATIONS
     let seenMessageIds = new Set();
     let seenMessageElements = new WeakSet();
+    let pendingMessages = new WeakSet();
     let meowAudioContext = null;
     let meowAudioUnlocked = false;
 
@@ -428,10 +429,27 @@
         }
     }
 
-    function processChat() {
-        const chat = document.querySelector(CONFIG.chat);
-
-        if (chat) replaceEmotes(chat);
+    function processChat(root = document.querySelector(CONFIG.chat)) {
+        if (root) {
+            replaceEmotes(root);
+        }
+    }
+    
+    // Обрабатываем только добавленные узлы.
+    function processAddedNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const parent = node.parentElement;
+    
+            if (parent) {
+                replaceEmotes(parent);
+            }
+    
+            return;
+        }
+    
+        if (node instanceof Element) {
+            replaceEmotes(node);
+        }
     }
 
     // ==========================================
@@ -703,9 +721,9 @@
 
         .s7tv-emote {
             display: inline-block !important;
-            width: auto !important;
+            width: 1.8em !important;
             height: 1.8em !important;
-            max-width: 3.8em !important;
+            max-width: 1.8em !important;
             max-height: 1.8em !important;
             vertical-align: -0.4em !important;
             object-fit: contain !important;
@@ -1015,10 +1033,9 @@
             for (const mutation of mutations) {
                 for (const node of mutation.addedNodes) {
                     checkAddedMessages(node);
+                    processAddedNode(node);
                 }
             }
-    
-            processChat();
         });
     
         observer.observe(chat, {
@@ -1152,22 +1169,38 @@
     }
 
     function checkAddedMessages(node) {
-        if (!(node instanceof Element)) {
-            const parent = node.parentElement?.closest('li.md');
-
-            if (parent) checkNewMessage(parent);
+        let message = null;
+    
+        if (node instanceof Element) {
+            if (node.matches('li.md')) {
+                message = node;
+            } else {
+                message = node.closest('li.md');
+    
+                if (!message) {
+                    message = node.querySelector('li.md');
+                }
+            }
+        } else {
+            message = node.parentElement?.closest('li.md');
+        }
+    
+        if (!message) return;
+    
+        if (
+            seenMessageElements.has(message) ||
+            pendingMessages.has(message)
+        ) {
             return;
         }
-
-        if (node.matches('li.md')) {
-            checkNewMessage(node);
-        }
-
-        node.querySelectorAll('li.md').forEach(checkNewMessage);
-
-        const parent = node.closest('li.md');
-
-        if (parent) checkNewMessage(parent);
+    
+        pendingMessages.add(message);
+    
+        // Даём Legion время полностью заполнить сообщение.
+        setTimeout(() => {
+            pendingMessages.delete(message);
+            checkNewMessage(message);
+        }, 100);
     }
 
     // ==========================================
