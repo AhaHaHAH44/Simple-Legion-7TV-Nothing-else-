@@ -582,9 +582,7 @@
         }
         
         .s7tv-item {
-            appearance: none !important;
-            -webkit-appearance: none !important;
-        
+            position: relative !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -593,66 +591,92 @@
             height: 43px !important;
             padding: 3px !important;
         
-            border: none !important;
-            outline: none !important;
+            background: #292b33 !important;
+            border: 1px solid rgba(255,255,255,.08) !important;
+            border-radius: 7px !important;
+        
             box-shadow: none !important;
-            border-radius: 6px !important;
-        
-            background: transparent !important;
-            color: #fff !important;
-        
-            cursor: pointer;
+            outline: none !important;
         }
         
         .s7tv-item:hover {
-            background: rgba(255,255,255,.12) !important;
-        }
-
-        .s7tv-item {
-            position: relative !important;
-            padding: 3px !important;
+            background: #383b46 !important;
         }
         
         .s7tv-pick {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-            padding: 3px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
+            appearance: none !important;
+            -webkit-appearance: none !important;
+        
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        
+            width: 100% !important;
+            height: 100% !important;
+            padding: 3px !important;
+            margin: 0 !important;
+        
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+        
+        .s7tv-pick:hover,
+        .s7tv-pick:focus,
+        .s7tv-pick:active {
+            background: transparent !important;
+            box-shadow: none !important;
         }
         
         .s7tv-pick img {
-            display: block;
-            max-width: 36px;
-            max-height: 34px;
-            object-fit: contain;
+            display: block !important;
+            max-width: 36px !important;
+            max-height: 34px !important;
+            object-fit: contain !important;
+            background: transparent !important;
         }
         
         .s7tv-favorite-toggle {
-            position: absolute;
-            top: 1px;
-            right: 2px;
-            padding: 0;
-            border: none;
-            background: transparent;
-            color: #888;
-            font-size: 13px;
-            line-height: 1;
-            cursor: pointer;
-            opacity: 0.7;
+            position: absolute !important;
+            top: 2px !important;
+            right: 3px !important;
+            z-index: 5 !important;
+        
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        
+            width: 15px !important;
+            height: 15px !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+        
+            padding: 0 !important;
+            margin: 0 !important;
+        
+            background: rgba(32, 33, 39, .8) !important;
+            border: none !important;
+            border-radius: 4px !important;
+        
+            color: #999 !important;
+            font-size: 12px !important;
+            line-height: 1 !important;
+        
+            box-shadow: none !important;
+            cursor: pointer !important;
+            opacity: .8;
         }
         
         .s7tv-favorite-toggle:hover {
+            background: rgba(32, 33, 39, .95) !important;
+            color: #ffd45c !important;
             opacity: 1;
-            color: #ffd45c;
         }
         
         .s7tv-favorite-toggle.active {
-            color: #ffd45c;
+            color: #ffd45c !important;
             opacity: 1;
         }
         
