@@ -503,6 +503,7 @@
             border: 1px solid rgba(255,255,255,.12) !important;
             border-radius: 9px !important;
             box-shadow: 0 5px 25px rgba(0,0,0,.4) !important;
+            overflow-x: hidden !important;
             box-sizing: border-box !important;
         
             display: flex;
@@ -515,50 +516,55 @@
         }
 
         .s7tv-tabs {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            width: 100%;
-            min-width: 0;
+            display: flex !important;
+            align-items: center !important;
+            gap: 5px !important;
+            width: 100% !important;
+            min-width: 0 !important;
         }
         
         .s7tv-tab {
-            flex: 0 1 auto;
-            min-width: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            appearance: none !important;
+            -webkit-appearance: none !important;
         
-            padding: 7px 9px;
-            border: 1px solid #41434c;
-            border-radius: 6px;
-            background: #292b33;
-            color: #aaa;
-            font-size: 12px;
-            cursor: pointer;
+            flex: 0 1 auto !important;
+            min-width: 0 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        
+            padding: 7px 9px !important;
+            margin: 0 !important;
+        
+            background: #292b33 !important;
+            border: 1px solid #41434c !important;
+            border-radius: 6px !important;
+        
+            color: #aaa !important;
+            font-size: 12px !important;
+        
+            box-shadow: none !important;
+            cursor: pointer !important;
         }
         
-        .s7tv-tab:first-child {
-            flex-shrink: 0;
+        .s7tv-tab:first-child,
+        .s7tv-tab:last-child {
+            flex-shrink: 0 !important;
         }
         
         .s7tv-tab:nth-child(2) {
-            flex: 1 1 auto;
-        }
-        
-        .s7tv-tab:last-child {
-            flex-shrink: 0;
+            flex: 1 1 auto !important;
         }
         
         .s7tv-tab:hover {
-            background: #353741;
-            color: #fff;
+            background: #353741 !important;
+            color: #fff !important;
         }
         
         .s7tv-tab.active {
-            background: #414653;
-            border-color: #777f91;
-            color: #fff;
+            background: #493442 !important;
+            border-color: #bd83a5 !important;
+            color: #ffd9ec !important;
         }
 
         .s7tv-search {
@@ -574,26 +580,36 @@
         }
         
         .s7tv-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 5px;
-            overflow-y: auto;
-            min-height: 0;
+            display: grid !important;
+            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+            gap: 4px !important;
+        
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        
+            min-width: 0 !important;
+            min-height: 0 !important;
+            width: 100% !important;
+        
+            scrollbar-width: thin;
         }
         
         .s7tv-item {
             position: relative !important;
+        
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
         
             width: 100% !important;
-            height: 43px !important;
-            padding: 3px !important;
+            height: 36px !important;
+            min-width: 0 !important;
+            padding: 2px !important;
+            margin: 0 !important;
         
             background: #292b33 !important;
             border: 1px solid rgba(255,255,255,.08) !important;
-            border-radius: 7px !important;
+            border-radius: 6px !important;
         
             box-shadow: none !important;
             outline: none !important;
@@ -613,29 +629,20 @@
         
             width: 100% !important;
             height: 100% !important;
-            padding: 3px !important;
+            min-width: 0 !important;
+            padding: 2px !important;
             margin: 0 !important;
         
             background: transparent !important;
             border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            outline: none !important;
-        }
-        
-        .s7tv-pick:hover,
-        .s7tv-pick:focus,
-        .s7tv-pick:active {
-            background: transparent !important;
             box-shadow: none !important;
         }
         
         .s7tv-pick img {
             display: block !important;
-            max-width: 36px !important;
-            max-height: 34px !important;
+            max-width: 30px !important;
+            max-height: 28px !important;
             object-fit: contain !important;
-            background: transparent !important;
         }
         
         .s7tv-favorite-toggle {
@@ -678,14 +685,6 @@
         .s7tv-favorite-toggle.active {
             color: #ffd45c !important;
             opacity: 1;
-        }
-        
-        .s7tv-item img {
-            display: block !important;
-            max-width: 38px !important;
-            max-height: 36px !important;
-            object-fit: contain;
-            background: transparent !important;
         }
         
         .s7tv-empty {
