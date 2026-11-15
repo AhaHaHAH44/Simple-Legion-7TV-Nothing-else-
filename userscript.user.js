@@ -40,6 +40,8 @@
     let picker = null;
     let observer = null;
     let observedChat = null;
+    let imageCache = new Map();
+    let imageRequests = new Map();
 
     // ==========================================
     // LOAD EMOTES
@@ -201,6 +203,62 @@
         return emote.url;
     }
 
+    function loadEmoteImage(url) {
+        if (imageCache.has(url)) {
+            return Promise.resolve(imageCache.get(url));
+        }
+    
+        if (imageRequests.has(url)) {
+            return imageRequests.get(url);
+        }
+    
+        const request = new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url,
+                responseType: 'blob',
+                timeout: 20000,
+    
+                onload(response) {
+                    if (response.status !== 200 || !response.response) {
+                        reject(new Error(`Image HTTP ${response.status}`));
+                        return;
+                    }
+    
+                    const blob = response.response instanceof Blob
+                        ? response.response
+                        : new Blob([response.response]);
+    
+                    if (!blob.type.startsWith('image/')) {
+                        reject(new Error('Invalid image response'));
+                        return;
+                    }
+    
+                    const blobUrl = URL.createObjectURL(blob);
+    
+                    imageCache.set(url, blobUrl);
+                    resolve(blobUrl);
+                },
+    
+                onerror() {
+                    reject(new Error('Image download failed'));
+                },
+    
+                ontimeout() {
+                    reject(new Error('Image download timeout'));
+                }
+            });
+        });
+    
+        imageRequests.set(url, request);
+    
+        request.finally(() => {
+            imageRequests.delete(url);
+        }).catch(() => {});
+    
+        return request;
+    }
+
     // ==========================================
     // MESSAGE RENDERING
     // ==========================================
@@ -288,7 +346,13 @@
                     const img = document.createElement('img');
 
                     img.className = 's7tv-emote';
-                    img.src = getEmoteUrl(emote);
+                    loadEmoteImage(getEmoteUrl(emote))
+                        .then(url => {
+                            img.src = url;
+                        })
+                        .catch(error => {
+                            console.warn(`[7TV] Failed to load ${name}:`, error);
+                        });
                     img.alt = name;
                     img.title = name;
                     img.loading = 'lazy';
@@ -547,7 +611,14 @@
                 item.title = name;
 
                 const img = document.createElement('img');
-                img.src = getEmoteUrl(emote);
+                loadEmoteImage(getEmoteUrl(emote))
+                    .then(url => {
+                        img.src = url;
+                    })
+                    .catch(error => {
+                        console.warn(`[7TV] Failed to load ${name}:`, error);
+                        img.alt = 'Ошибка загрузки';
+                    });
                 img.alt = name;
                 img.loading = 'lazy';
 
