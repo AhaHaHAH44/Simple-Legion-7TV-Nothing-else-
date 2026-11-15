@@ -52,6 +52,12 @@
     let imageRequests = new Map();
     let favoriteEmotes = new Set();
 
+    // MEOW NOTIFICATIONS
+    let seenMessageIds = new Set();
+    let seenMessageElements = new WeakSet();
+    let meowAudioContext = null;
+    let meowAudioUnlocked = false;
+
     try {
         const savedFavorites = JSON.parse(
             localStorage.getItem(CONFIG.favoritesKey) || '[]'
@@ -705,6 +711,12 @@
             object-fit: contain !important;
             margin: 0 2px !important;
         }
+
+        .s7tv-tab:first-child {
+            flex: 0 0 38px !important;
+            padding: 7px 5px !important;
+            font-size: 16px !important;
+        }
         `;
 
         document.head.appendChild(style);
@@ -737,7 +749,8 @@
         const globalTab = document.createElement('button');
         globalTab.type = 'button';
         globalTab.className = 's7tv-tab active';
-        globalTab.textContent = 'Global';
+        globalTab.textContent = '🌐';
+        globalTab.title = 'Global emotes';
     
         const channelTab = document.createElement('button');
         channelTab.type = 'button';
@@ -986,22 +999,174 @@
 
     function startObserver() {
         if (observer) observer.disconnect();
-
+    
         const chat = document.querySelector(CONFIG.chat);
         observedChat = chat;
-
+    
         if (!chat) return;
-
+    
+        // Обрабатываем старые сообщения без уведомлений.
         processChat();
-
-        observer = new MutationObserver(() => {
+    
+        // Запоминаем их, чтобы после перезагрузки не было звука.
+        rememberExistingMessages(chat);
+    
+        observer = new MutationObserver(mutations => {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    checkAddedMessages(node);
+                }
+            }
+    
             processChat();
         });
-
+    
         observer.observe(chat, {
             childList: true,
             subtree: true
         });
+    }
+
+    // ==========================================
+    // MEOW NOTIFICATIONS
+    // ==========================================
+
+    function unlockMeowAudio() {
+        if (meowAudioUnlocked) return;
+
+        const AudioContextClass =
+            window.AudioContext || window.webkitAudioContext;
+
+        if (!AudioContextClass) return;
+
+        meowAudioContext = new AudioContextClass();
+        meowAudioContext.resume();
+
+        meowAudioUnlocked = true;
+    }
+
+    document.addEventListener('pointerdown', unlockMeowAudio, {
+        once: true
+    });
+
+    document.addEventListener('keydown', unlockMeowAudio, {
+        once: true
+    });
+
+    function playMeow() {
+        if (!meowAudioContext ||
+            meowAudioContext.state !== 'running') return;
+
+        const ctx = meowAudioContext;
+        const now = ctx.currentTime;
+
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.type = 'sine';
+
+        oscillator.frequency.setValueAtTime(650, now);
+        oscillator.frequency.exponentialRampToValueAtTime(950, now + 0.12);
+        oscillator.frequency.exponentialRampToValueAtTime(480, now + 0.38);
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.22, now + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.start(now);
+        oscillator.stop(now + 0.43);
+    }
+
+    function messageMentionsMe(message) {
+        const nicknameElement = document.querySelector('.whn');
+        const myNickname = nicknameElement?.textContent.trim();
+
+        if (!myNickname) return false;
+
+        const authorElement = message.querySelector('b[data-nick]');
+        const author = authorElement?.dataset.nick;
+
+        // Не уведомляем о собственных сообщениях.
+        if (author?.toLowerCase() === myNickname.toLowerCase()) {
+            return false;
+        }
+
+        const messageText = message.textContent || '';
+
+        const escapedNickname = myNickname.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            '\\$&'
+        );
+
+        const mentionRegex = new RegExp(
+            `(^|[^\\p{L}\\p{N}_])@?${escapedNickname}(?=$|[^\\p{L}\\p{N}_])`,
+            'iu'
+        );
+
+        return mentionRegex.test(messageText);
+    }
+
+    function rememberExistingMessages(chat) {
+        seenMessageIds.clear();
+
+        chat.querySelectorAll('li.md').forEach(message => {
+            const id = message.dataset.mid;
+
+            if (id) {
+                seenMessageIds.add(id);
+            }
+
+            seenMessageElements.add(message);
+        });
+    }
+
+    function checkNewMessage(message) {
+        if (!(message instanceof Element)) return;
+        if (!message.matches('li.md')) return;
+
+        const id = message.dataset.mid;
+
+        if (id && seenMessageIds.has(id)) return;
+        if (seenMessageElements.has(message)) return;
+
+        if (id) {
+            seenMessageIds.add(id);
+
+            // Ограничиваем размер списка обработанных сообщений.
+            if (seenMessageIds.size > 500) {
+                const oldest = seenMessageIds.values().next().value;
+                seenMessageIds.delete(oldest);
+            }
+        }
+
+        seenMessageElements.add(message);
+
+        if (messageMentionsMe(message)) {
+            playMeow();
+            console.log('[7TV] 🐱 Тебя упомянули!');
+        }
+    }
+
+    function checkAddedMessages(node) {
+        if (!(node instanceof Element)) {
+            const parent = node.parentElement?.closest('li.md');
+
+            if (parent) checkNewMessage(parent);
+            return;
+        }
+
+        if (node.matches('li.md')) {
+            checkNewMessage(node);
+        }
+
+        node.querySelectorAll('li.md').forEach(checkNewMessage);
+
+        const parent = node.closest('li.md');
+
+        if (parent) checkNewMessage(parent);
     }
 
     // ==========================================
