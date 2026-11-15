@@ -30,6 +30,7 @@
         cacheKey: 'simpleLegion7TV_cache_v3',
         cacheTime: 6 * 60 * 60 * 1000,
         channel: 'ZakvielChannel',
+        twitchId: '44407373',
 
         chat: '.cy-chat-l',
         input: 'form.cy-chat-f input[type="text"]',
@@ -92,53 +93,36 @@
             let channelEmotes = [];
     
             try {
-                console.log(`[7TV] Searching channel: ${CONFIG.channel}`);
-    
-                const searchData = await requestJson(
-                    `https://7tv.io/v3/users?query=${encodeURIComponent(CONFIG.channel)}`
-                );
-    
-                const users = Array.isArray(searchData)
-                    ? searchData
-                    : searchData.users || [];
-    
-                const user = users.find(user =>
-                    user.username?.toLowerCase() === CONFIG.channel.toLowerCase() ||
-                    user.connections?.some(connection =>
-                        connection.username?.toLowerCase() === CONFIG.channel.toLowerCase()
-                    )
-                );
-    
-                if (!user) {
-                    throw new Error('7TV channel user not found');
-                }
-    
-                const twitch = user.connections?.find(connection =>
-                    String(connection.platform).toLowerCase() === 'twitch'
-                );
-    
-                if (!twitch?.id) {
-                    throw new Error('Twitch connection not found');
-                }
-    
+                console.log(`[7TV] Loading channel: ${CONFIG.channel}`);
+            
                 const connectionData = await requestJson(
-                    `https://7tv.io/v3/users/twitch/${encodeURIComponent(twitch.id)}`
+                    `https://7tv.io/v3/users/twitch/${CONFIG.twitchId}`
                 );
-    
+            
                 let channelSet = connectionData.emote_set;
-    
+            
+                // Если API вернул только ID набора
                 if (!channelSet && connectionData.emote_set_id) {
                     channelSet = await requestJson(
                         `https://7tv.io/v3/emote-sets/${connectionData.emote_set_id}`
                     );
                 }
-    
-                channelEmotes = channelSet?.emotes || [];
-    
+            
+                // Дополнительная проверка альтернативного поля
+                if (!channelSet && connectionData.emote_sets?.length) {
+                    channelSet = connectionData.emote_sets[0];
+                }
+            
+                if (!channelSet) {
+                    throw new Error('Channel emote set not found');
+                }
+            
+                channelEmotes = channelSet.emotes || [];
+            
                 console.log(
-                    `[7TV] ZakvielChannel emotes: ${channelEmotes.length}`
+                    `[7TV] ${CONFIG.channel} emotes: ${channelEmotes.length}`
                 );
-    
+            
             } catch (error) {
                 console.warn('[7TV] Channel emotes unavailable:', error);
             }
