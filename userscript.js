@@ -4,8 +4,8 @@
 // @version      1.0.0
 // @description  Minimal 7TV emote support for MultiDonate
 // @author       Sectwi1l
-// @match        *://multidonate.ru/*
-// @match        *://*.multidonate.ru/*
+// @match        https://legiongame.gg/*
+// @match        https://*.legiongame.gg/*
 // @icon         https://7tv.app/favicon.ico
 // @grant        none
 // @run-at       document-idle
@@ -244,6 +244,7 @@
             }
 
             .s7tv-picker-button {
+                flex: 0 0 auto;
                 background: transparent;
                 border: none;
                 outline: none;
@@ -253,30 +254,20 @@
                 cursor: pointer;
                 font-size: 12px;
                 font-weight: 600;
-                padding: 0 7px;
+                padding: 0 9px;
                 margin: 0;
-                height: 100%;
                 transition: opacity .15s;
             }
             
             .s7tv-picker-button:hover {
                 opacity: 1;
             }
-
+            
             .s7tv-picker {
                 position: absolute;
                 z-index: 999999;
-                width: 280px;
-                max-height: 350px;
-                padding: 10px;
-                background: #202127;
-                color: #fff;
-                border: 1px solid rgba(255,255,255,.1);
-                border-radius: 10px;
-                box-shadow: 0 5px 25px rgba(0,0,0,.35);
-                display: flex;
-                flex-direction: column;
-                gap: 9px;
+                right: 38px;
+                bottom: calc(100% + 8px);
             }
 
             .s7tv-picker[hidden] {
@@ -371,16 +362,19 @@
 
         panel.append(search, grid);
 
-        const parent = form.parentElement;
+        const submitButton = form.querySelector('button[type="submit"]');
 
-        if (!parent) return;
-
-        if (getComputedStyle(parent).position === 'static') {
-            parent.style.position = 'relative';
+        if (!submitButton) return;
+        
+        if (getComputedStyle(form).position === 'static') {
+            form.style.position = 'relative';
         }
-
-        parent.appendChild(button);
-        parent.appendChild(panel);
+        
+        // Кнопка 7TV между полем ввода и отправкой
+        form.insertBefore(button, submitButton);
+        
+        // Окно выбора смайликов
+        form.appendChild(panel);
 
         function renderGrid(query = '') {
             grid.replaceChildren();
