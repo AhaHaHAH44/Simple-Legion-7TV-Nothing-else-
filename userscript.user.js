@@ -46,106 +46,139 @@
     // ==========================================
 
     function requestJson(url) {
-    return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url,
-            timeout: 15000,
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url,
+                timeout: 15000,
+    
+                onload(response) {
+                    if (response.status !== 200) {
+                        reject(new Error(`HTTP ${response.status}`));
+                        return;
+                    }
+    
+                    try {
+                        resolve(JSON.parse(response.responseText));
+                    } catch (error) {
+                        reject(error);
+                    }
+                },
+    
+                onerror() {
+                    reject(new Error('Ошибка соединения с 7TV'));
+                },
+    
+                ontimeout() {
+                    reject(new Error('Превышено время ожидания 7TV'));
+                }
+            });
+        });
+    }
 
-            onload(response) {
-                if (response.status !== 200) {
-                    reject(new Error(`HTTP ${response.status}`));
+    async function loadEmotes() {
+        try {
+            const cached = localStorage.getItem(CONFIG.cacheKey);
+    
+            if (cached) {
+                const data = JSON.parse(cached);
+    
+                if (
+                    Date.now() - data.time < CONFIG.cacheTime &&
+                    Array.isArray(data.emotes) &&
+                    data.emotes.length > 0
+                ) {
+                    setEmotes(data.emotes);
+                    console.log(`[7TV] Cache loaded: ${emotes.size}`);
                     return;
                 }
-
-                try {
-                    resolve(JSON.parse(response.responseText));
-                } catch (error) {
-                    reject(error);
-                }
-            },
-
-            onerror() {
-                reject(new Error('Ошибка соединения с 7TV'));
-            },
-
-            ontimeout() {
-                reject(new Error('Превышено время ожидания 7TV'));
             }
-        });
-    });
-}
-
-async function loadEmotes() {
-    try {
-        const cached = localStorage.getItem(CONFIG.cacheKey);
-
-        if (cached) {
-            const data = JSON.parse(cached);
-
-            if (
-                Date.now() - data.time < CONFIG.cacheTime &&
-                Array.isArray(data.emotes) &&
-                data.emotes.length > 0
-            ) {
-                setEmotes(data.emotes);
-                console.log(`[7TV] Cache loaded: ${emotes.size}`);
-                return;
+        } catch (error) {
+            console.warn('[7TV] Cache error:', error);
+        }
+    
+        try {
+            console.log('[7TV] Loading global emotes...');
+    
+            const data = await requestJson(CONFIG.api);
+    
+            if (!Array.isArray(data.emotes)) {
+                throw new Error('Invalid API response');
             }
+    
+            setEmotes(data.emotes);
+
+            console.log('[7TV] First emote:', emotes.values().next().value);
+    
+            if (emotes.size === 0) {
+                throw new Error('API returned an empty emote list');
+            }
+    
+            localStorage.setItem(CONFIG.cacheKey, JSON.stringify({
+                time: Date.now(),
+                emotes: data.emotes
+            }));
+    
+            console.log(`[7TV] Successfully loaded ${emotes.size} emotes`);
+    
+        } catch (error) {
+            console.error('[7TV] Loading failed:', error);
         }
-    } catch (error) {
-        console.warn('[7TV] Cache error:', error);
     }
-
-    try {
-        console.log('[7TV] Loading global emotes...');
-
-        const data = await requestJson(CONFIG.api);
-
-        if (!Array.isArray(data.emotes)) {
-            throw new Error('Invalid API response');
-        }
-
-        setEmotes(data.emotes);
-
-        if (emotes.size === 0) {
-            throw new Error('API returned an empty emote list');
-        }
-
-        localStorage.setItem(CONFIG.cacheKey, JSON.stringify({
-            time: Date.now(),
-            emotes: data.emotes
-        }));
-
-        console.log(`[7TV] Successfully loaded ${emotes.size} emotes`);
-
-    } catch (error) {
-        console.error('[7TV] Loading failed:', error);
-    }
-}
-
-    function setEmotes(list) {
+    
+        function setEmotes(list) {
         emotes.clear();
-
+    
         for (const item of list) {
-            const emote = item.data || item;
-
-            if (!emote.id || !item.name && !emote.name) continue;
-
-            const name = item.name || emote.name;
-
+            const data = item.data || item;
+            const name = item.name || data.name;
+            const id = data.id || item.id;
+            const host = data.host || item.host;
+    
+            if (!id || !name) continue;
+    
+            let imageUrl = null;
+    
+            if (host?.url && Array.isArray(host.files)) {
+                const preferred = [
+                    '2x.webp',
+                    '2x.avif',
+                    '2x.gif',
+                    '2x.png',
+                    '1x.webp',
+                    '1x.avif',
+                    '1x.gif',
+                    '1x.png'
+                ];
+    
+                const file = preferred
+                    .map(filename => host.files.find(f => f.name === filename))
+                    .find(Boolean);
+    
+                if (file) {
+                    imageUrl = `${host.url.replace(/\/$/, '')}/${file.name}`;
+                }
+            }
+    
+            if (!imageUrl) {
+                imageUrl = `${CONFIG.cdn}${id}/2x`;
+            }
+    
             emotes.set(name, {
-                id: emote.id,
-                name
+                id,
+                name,
+                url: imageUrl
             });
         }
-
+    
         emoteNames = [...emotes.keys()]
             .sort((a, b) => b.length - a.length);
+    
+        console.log(`[7TV] Prepared ${emotes.size} emotes`);
     }
-
-    function getEmoteUrl(id) {
-        return `${CONFIG.cdn}${id}/2x.webp`;
+    
+    function getEmoteUrl(emote) {
+        return emote.url;
     }
 
     // ==========================================
@@ -235,7 +268,7 @@ async function loadEmotes() {
                     const img = document.createElement('img');
 
                     img.className = 's7tv-emote';
-                    img.src = getEmoteUrl(emote.id);
+                    img.src = getEmoteUrl(emote);
                     img.alt = name;
                     img.title = name;
                     img.loading = 'lazy';
@@ -371,24 +404,38 @@ async function loadEmotes() {
         }
         
         .s7tv-item {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 43px;
-            border: none;
-            border-radius: 6px;
-            background: transparent;
+            appearance: none !important;
+            -webkit-appearance: none !important;
+        
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        
+            width: 100% !important;
+            height: 43px !important;
+            padding: 3px !important;
+        
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            border-radius: 6px !important;
+        
+            background: transparent !important;
+            color: #fff !important;
+        
             cursor: pointer;
         }
         
         .s7tv-item:hover {
-            background: rgba(255,255,255,.12);
+            background: rgba(255,255,255,.12) !important;
         }
         
         .s7tv-item img {
-            max-width: 38px;
-            max-height: 36px;
+            display: block !important;
+            max-width: 38px !important;
+            max-height: 36px !important;
             object-fit: contain;
+            background: transparent !important;
         }
         
         .s7tv-empty {
@@ -480,7 +527,7 @@ async function loadEmotes() {
                 item.title = name;
 
                 const img = document.createElement('img');
-                img.src = getEmoteUrl(emote.id);
+                img.src = getEmoteUrl(emote);
                 img.alt = name;
                 img.loading = 'lazy';
 
