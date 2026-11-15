@@ -397,6 +397,13 @@
 
                 if (emote) {
                     const img = document.createElement('img');
+                    img.width = 32;
+                    img.height = 32;
+                    img.style.width = '1.8em';
+                    img.style.height = '1.8em';
+                    img.style.aspectRatio = '1 / 1';
+                    img.style.objectFit = 'contain';
+                    img.style.verticalAlign = 'middle';
 
                     img.className = 's7tv-emote';
                     loadEmoteImage(getEmoteUrl(emote))
@@ -721,13 +728,25 @@
 
         .s7tv-emote {
             display: inline-block !important;
+        
+            /* Одинаковый квадрат для всех смайликов */
             width: 1.8em !important;
             height: 1.8em !important;
+            min-width: 1.8em !important;
+            min-height: 1.8em !important;
             max-width: 1.8em !important;
             max-height: 1.8em !important;
-            vertical-align: -0.4em !important;
+        
+            /* Вписываем даже длинные изображения в квадрат */
             object-fit: contain !important;
+            object-position: center !important;
+        
+            /* Не даём изображению менять высоту строки */
+            vertical-align: middle !important;
+            flex-shrink: 0 !important;
+        
             margin: 0 2px !important;
+            box-sizing: border-box !important;
         }
 
         .s7tv-tab:first-child {
