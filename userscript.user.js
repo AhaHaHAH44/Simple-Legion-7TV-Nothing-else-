@@ -1054,6 +1054,7 @@
     });
 
     function playMeow() {
+        console.log('[Simple Legion 7TV] playMeow вызвана!');
         if (!meowAudioContext ||
             meowAudioContext.state !== 'running') return;
 
