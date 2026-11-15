@@ -170,6 +170,26 @@
                 url: imageUrl
             });
         }
+
+        console.log('[7TV DEBUG] First emote:', [...emotes.values()][0]);
+
+        const first = [...emotes.values()][0];
+        
+        if (first) {
+            console.log('[7TV DEBUG] Image URL:', first.url);
+        
+            const testImage = new Image();
+        
+            testImage.onload = () => {
+                console.log('[7TV DEBUG] Image loaded:', testImage.naturalWidth);
+            };
+        
+            testImage.onerror = () => {
+                console.error('[7TV DEBUG] Image failed:', first.url);
+            };
+        
+            testImage.src = first.url;
+        }
     
         emoteNames = [...emotes.keys()]
             .sort((a, b) => b.length - a.length);
