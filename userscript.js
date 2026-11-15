@@ -1,14 +1,20 @@
 // ==UserScript==
 // @name         Simple Legion 7TV
-// @namespace    https://github.com/AhaHaHAH44
+// @namespace    https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-
 // @version      1.0.0
-// @description  Minimal 7TV emote support for MultiDonate
+// @description  Minimal 7TV emote support for Legion Game
 // @author       Sectwi1l
+// @homepageURL  https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-
+// @supportURL   https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-/issues
+// @updateURL    https://raw.githubusercontent.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-/main/userscript.js
+// @downloadURL  https://raw.githubusercontent.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-/main/userscript.js
 // @match        https://legiongame.gg/*
-// @match        https://*.legiongame.gg/*
-// @icon         https://7tv.app/favicon.ico
-// @grant        none
 // @run-at       document-idle
+// @grant        GM_xmlhttpRequest
+// @grant        GM_info
+// @connect      7tv.io
+// @connect      cdn.7tv.app
+// @connect      raw.githubusercontent.com
 // ==/UserScript==
 
 (() => {
