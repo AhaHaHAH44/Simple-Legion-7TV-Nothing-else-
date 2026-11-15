@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Simple Legion 7TV
 // @namespace    https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-
-// @version      1.1.0
+// @version      1.2.0
 // @description  Minimal 7TV emote support for Legion Game
 // @author       Sectwi1l
 // @homepageURL  https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-
@@ -28,6 +28,7 @@
         api: 'https://7tv.io/v3/emote-sets/global',
         cdn: 'https://cdn.7tv.app/emote/',
         cacheKey: 'simpleLegion7TV_cache_v4',
+        favoritesKey: 'simpleLegion7TV_favorites_v1',
         cacheTime: 6 * 60 * 60 * 1000,
         channel: 'ZakvielChannel',
         twitchId: '44407373',
@@ -49,6 +50,19 @@
     
     let imageCache = new Map();
     let imageRequests = new Map();
+    let favoriteEmotes = new Set();
+
+    try {
+        const savedFavorites = JSON.parse(
+            localStorage.getItem(CONFIG.favoritesKey) || '[]'
+        );
+    
+        if (Array.isArray(savedFavorites)) {
+            favoriteEmotes = new Set(savedFavorites);
+        }
+    } catch (error) {
+        console.warn('[7TV] Favorites loading failed:', error);
+    }
 
     // ==========================================
     // LOAD EMOTES
@@ -489,6 +503,7 @@
             border: 1px solid rgba(255,255,255,.12) !important;
             border-radius: 9px !important;
             box-shadow: 0 5px 25px rgba(0,0,0,.4) !important;
+            box-sizing: border-box !important;
         
             display: flex;
             flex-direction: column;
@@ -501,18 +516,38 @@
 
         .s7tv-tabs {
             display: flex;
-            gap: 6px;
+            align-items: center;
+            gap: 5px;
+            width: 100%;
+            min-width: 0;
         }
         
         .s7tv-tab {
-            flex: 1;
-            padding: 7px 5px;
+            flex: 0 1 auto;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        
+            padding: 7px 9px;
             border: 1px solid #41434c;
             border-radius: 6px;
             background: #292b33;
             color: #aaa;
             font-size: 12px;
             cursor: pointer;
+        }
+        
+        .s7tv-tab:first-child {
+            flex-shrink: 0;
+        }
+        
+        .s7tv-tab:nth-child(2) {
+            flex: 1 1 auto;
+        }
+        
+        .s7tv-tab:last-child {
+            flex-shrink: 0;
         }
         
         .s7tv-tab:hover {
@@ -572,6 +607,54 @@
         .s7tv-item:hover {
             background: rgba(255,255,255,.12) !important;
         }
+
+        .s7tv-item {
+            position: relative !important;
+            padding: 3px !important;
+        }
+        
+        .s7tv-pick {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            padding: 3px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        
+        .s7tv-pick img {
+            display: block;
+            max-width: 36px;
+            max-height: 34px;
+            object-fit: contain;
+        }
+        
+        .s7tv-favorite-toggle {
+            position: absolute;
+            top: 1px;
+            right: 2px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: #888;
+            font-size: 13px;
+            line-height: 1;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+        
+        .s7tv-favorite-toggle:hover {
+            opacity: 1;
+            color: #ffd45c;
+        }
+        
+        .s7tv-favorite-toggle.active {
+            color: #ffd45c;
+            opacity: 1;
+        }
         
         .s7tv-item img {
             display: block !important;
@@ -592,10 +675,10 @@
         .s7tv-emote {
             display: inline-block !important;
             width: auto !important;
-            height: 1.5em !important;
-            max-width: 3.2em !important;
-            max-height: 1.5em !important;
-            vertical-align: -0.3em !important;
+            height: 1.8em !important;
+            max-width: 3.8em !important;
+            max-height: 1.8em !important;
+            vertical-align: -0.4em !important;
             object-fit: contain !important;
             margin: 0 2px !important;
         }
@@ -616,18 +699,15 @@
         if (form.querySelector('.s7tv-picker-button')) return;
     
         const button = document.createElement('button');
-    
         button.type = 'button';
         button.className = 's7tv-picker-button';
         button.title = '7TV Emotes';
         button.textContent = '7TV';
     
         const panel = document.createElement('div');
-    
         panel.className = 's7tv-picker';
         panel.hidden = true;
     
-        // Вкладки.
         const tabs = document.createElement('div');
         tabs.className = 's7tv-tabs';
     
@@ -641,10 +721,14 @@
         channelTab.className = 's7tv-tab';
         channelTab.textContent = CONFIG.channel;
     
-        tabs.append(globalTab, channelTab);
+        const favoritesTab = document.createElement('button');
+        favoritesTab.type = 'button';
+        favoritesTab.className = 's7tv-tab';
+        favoritesTab.textContent = '⭐';
+    
+        tabs.append(globalTab, channelTab, favoritesTab);
     
         const search = document.createElement('input');
-    
         search.className = 's7tv-search';
         search.placeholder = 'Поиск смайлика...';
         search.type = 'text';
@@ -655,7 +739,6 @@
         panel.append(tabs, search, grid);
     
         const submitButton = form.querySelector('button[type="submit"]');
-    
         if (!submitButton) return;
     
         if (getComputedStyle(form).position === 'static') {
@@ -666,36 +749,66 @@
         wrapper.className = 's7tv-input-wrap';
     
         form.insertBefore(wrapper, input);
-    
         wrapper.appendChild(input);
         wrapper.appendChild(button);
-    
         form.appendChild(panel);
     
         let activeSet = 'global';
     
-        // Поиск сохраняется отдельно для каждой вкладки.
         const searchQueries = {
             global: '',
-            channel: ''
+            channel: '',
+            favorites: ''
         };
     
         function getActiveEmotes() {
-            return activeSet === 'global'
-                ? globalEmotes
-                : channelEmotes;
+            if (activeSet === 'global') return globalEmotes;
+            if (activeSet === 'channel') return channelEmotes;
+    
+            const result = new Map();
+    
+            for (const name of favoriteEmotes) {
+                const emote = emotes.get(name);
+                if (emote) result.set(name, emote);
+            }
+    
+            return result;
+        }
+    
+        function saveFavorites() {
+            localStorage.setItem(
+                CONFIG.favoritesKey,
+                JSON.stringify([...favoriteEmotes])
+            );
         }
     
         function updateTabs() {
-            globalTab.classList.toggle(
-                'active',
-                activeSet === 'global'
-            );
+            globalTab.classList.toggle('active', activeSet === 'global');
+            channelTab.classList.toggle('active', activeSet === 'channel');
+            favoritesTab.classList.toggle('active', activeSet === 'favorites');
+        }
     
-            channelTab.classList.toggle(
-                'active',
-                activeSet === 'channel'
-            );
+        function insertEmote(name) {
+            const start = input.selectionStart ?? input.value.length;
+            const end = input.selectionEnd ?? start;
+    
+            const before = input.value.slice(0, start);
+            const after = input.value.slice(end);
+    
+            const separator = before && !/\s$/.test(before) ? ' ' : '';
+    
+            input.value = before + separator + name + after;
+    
+            const cursor = (before + separator + name).length;
+    
+            input.focus();
+            input.setSelectionRange(cursor, cursor);
+    
+            input.dispatchEvent(new Event('input', {
+                bubbles: true
+            }));
+    
+            panel.hidden = true;
         }
     
         function renderGrid() {
@@ -713,9 +826,11 @@
                 const empty = document.createElement('div');
                 empty.className = 's7tv-empty';
     
-                empty.textContent = activeSet === 'channel'
-                    ? 'В наборе канала пока нет смайликов'
-                    : 'Смайлики не найдены';
+                empty.textContent = activeSet === 'favorites'
+                    ? 'В избранном пока пусто'
+                    : activeSet === 'channel'
+                        ? 'В наборе канала пока нет смайликов'
+                        : 'Смайлики не найдены';
     
                 grid.appendChild(empty);
                 return;
@@ -724,10 +839,14 @@
             for (const name of filtered) {
                 const emote = currentEmotes.get(name);
     
-                const item = document.createElement('button');
-                item.type = 'button';
+                const item = document.createElement('div');
                 item.className = 's7tv-item';
                 item.title = name;
+    
+                const pickButton = document.createElement('button');
+                pickButton.type = 'button';
+                pickButton.className = 's7tv-pick';
+                pickButton.title = `Вставить ${name}`;
     
                 const img = document.createElement('img');
     
@@ -743,40 +862,52 @@
                 img.alt = name;
                 img.loading = 'lazy';
     
-                item.appendChild(img);
-    
-                item.addEventListener('click', () => {
-                    const start = input.selectionStart ?? input.value.length;
-                    const end = input.selectionEnd ?? start;
-    
-                    const before = input.value.slice(0, start);
-                    const after = input.value.slice(end);
-    
-                    const separator = before && !/\s$/.test(before)
-                        ? ' '
-                        : '';
-    
-                    input.value = before + separator + name + after;
-    
-                    const cursor = (before + separator + name).length;
-    
-                    input.focus();
-                    input.setSelectionRange(cursor, cursor);
-    
-                    input.dispatchEvent(new Event('input', {
-                        bubbles: true
-                    }));
-    
-                    panel.hidden = true;
+                pickButton.appendChild(img);
+                pickButton.addEventListener('click', () => {
+                    insertEmote(name);
                 });
     
+                const favoriteButton = document.createElement('button');
+                favoriteButton.type = 'button';
+                favoriteButton.className = 's7tv-favorite-toggle';
+    
+                function updateFavoriteButton() {
+                    const isFavorite = favoriteEmotes.has(name);
+    
+                    favoriteButton.textContent = isFavorite ? '★' : '☆';
+                    favoriteButton.classList.toggle('active', isFavorite);
+                    favoriteButton.title = isFavorite
+                        ? 'Убрать из избранного'
+                        : 'Добавить в избранное';
+                }
+    
+                updateFavoriteButton();
+    
+                favoriteButton.addEventListener('click', event => {
+                    event.stopPropagation();
+    
+                    if (favoriteEmotes.has(name)) {
+                        favoriteEmotes.delete(name);
+                    } else {
+                        favoriteEmotes.add(name);
+                    }
+    
+                    saveFavorites();
+    
+                    if (activeSet === 'favorites') {
+                        renderGrid();
+                    } else {
+                        updateFavoriteButton();
+                    }
+                });
+    
+                item.append(pickButton, favoriteButton);
                 grid.appendChild(item);
             }
         }
     
         function switchTab(setName) {
             activeSet = setName;
-    
             updateTabs();
     
             search.value = searchQueries[activeSet];
@@ -789,6 +920,10 @@
     
         channelTab.addEventListener('click', () => {
             switchTab('channel');
+        });
+    
+        favoritesTab.addEventListener('click', () => {
+            switchTab('favorites');
         });
     
         button.addEventListener('click', () => {
