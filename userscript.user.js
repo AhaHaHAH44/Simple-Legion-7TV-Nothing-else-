@@ -6,8 +6,8 @@
 // @author       Sectwi1l
 // @homepageURL  https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-
 // @supportURL   https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-/issues
-// @updateURL    https://raw.githubusercontent.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-/main/userscript.js
-// @downloadURL  https://raw.githubusercontent.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-/main/userscript.js
+// @updateURL    https://raw.githubusercontent.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-/main/userscript.user.js
+// @downloadURL  https://raw.githubusercontent.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-/main/userscript.user.js
 // @match        https://legiongame.gg/*
 // @run-at       document-idle
 // @grant        GM_xmlhttpRequest
@@ -27,7 +27,7 @@
     const CONFIG = {
         api: 'https://7tv.io/v3/emote-sets/global',
         cdn: 'https://cdn.7tv.app/emote/',
-        cacheKey: 'simpleLegion7TV_cache',
+        cacheKey: 'simpleLegion7TV_cache_v2',
         cacheTime: 6 * 60 * 60 * 1000,
 
         chat: '.cy-chat-l',
@@ -45,50 +45,84 @@
     // LOAD EMOTES
     // ==========================================
 
-    async function loadEmotes() {
-        try {
-            const cached = localStorage.getItem(CONFIG.cacheKey);
+    function requestJson(url) {
+    return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url,
+            timeout: 15000,
 
-            if (cached) {
-                const data = JSON.parse(cached);
-
-                if (
-                    Date.now() - data.time < CONFIG.cacheTime &&
-                    Array.isArray(data.emotes)
-                ) {
-                    setEmotes(data.emotes);
+            onload(response) {
+                if (response.status !== 200) {
+                    reject(new Error(`HTTP ${response.status}`));
                     return;
                 }
+
+                try {
+                    resolve(JSON.parse(response.responseText));
+                } catch (error) {
+                    reject(error);
+                }
+            },
+
+            onerror() {
+                reject(new Error('Ошибка соединения с 7TV'));
+            },
+
+            ontimeout() {
+                reject(new Error('Превышено время ожидания 7TV'));
             }
-        } catch (error) {
-            console.warn('[7TV] Cache error:', error);
+        });
+    });
+}
+
+async function loadEmotes() {
+    try {
+        const cached = localStorage.getItem(CONFIG.cacheKey);
+
+        if (cached) {
+            const data = JSON.parse(cached);
+
+            if (
+                Date.now() - data.time < CONFIG.cacheTime &&
+                Array.isArray(data.emotes) &&
+                data.emotes.length > 0
+            ) {
+                setEmotes(data.emotes);
+                console.log(`[7TV] Cache loaded: ${emotes.size}`);
+                return;
+            }
         }
-
-        try {
-            const response = await fetch(CONFIG.api);
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (!Array.isArray(data.emotes)) {
-                throw new Error('Invalid 7TV response');
-            }
-
-            setEmotes(data.emotes);
-
-            localStorage.setItem(CONFIG.cacheKey, JSON.stringify({
-                time: Date.now(),
-                emotes: data.emotes
-            }));
-
-            console.log(`[7TV] Loaded ${emotes.size} emotes`);
-        } catch (error) {
-            console.error('[7TV] Loading failed:', error);
-        }
+    } catch (error) {
+        console.warn('[7TV] Cache error:', error);
     }
+
+    try {
+        console.log('[7TV] Loading global emotes...');
+
+        const data = await requestJson(CONFIG.api);
+
+        if (!Array.isArray(data.emotes)) {
+            throw new Error('Invalid API response');
+        }
+
+        setEmotes(data.emotes);
+
+        if (emotes.size === 0) {
+            throw new Error('API returned an empty emote list');
+        }
+
+        localStorage.setItem(CONFIG.cacheKey, JSON.stringify({
+            time: Date.now(),
+            emotes: data.emotes
+        }));
+
+        console.log(`[7TV] Successfully loaded ${emotes.size} emotes`);
+
+    } catch (error) {
+        console.error('[7TV] Loading failed:', error);
+    }
+}
 
     function setEmotes(list) {
         emotes.clear();
@@ -239,95 +273,131 @@
         const style = document.createElement('style');
 
         style.textContent = `
-            .s7tv-emote {
-                display: inline-block;
-                width: auto;
-                height: 1.8em;
-                max-width: 4em;
-                vertical-align: middle;
-                object-fit: contain;
-                margin: 0 2px;
-            }
+            .s7tv-input-wrap {
+            position: relative !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        
+        .s7tv-input-wrap input {
+            width: 100% !important;
+            min-width: 0 !important;
+            padding-right: 48px !important;
+        }
+        
+        .s7tv-picker-button {
+            position: absolute !important;
+            right: 7px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+        
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        
+            width: auto !important;
+            height: auto !important;
+            min-width: 0 !important;
+        
+            padding: 3px 4px !important;
+            margin: 0 !important;
+        
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        
+            color: inherit !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            opacity: 0.65;
+        
+            cursor: pointer;
+            transition: opacity .15s;
+        }
+        
+        .s7tv-picker-button:hover {
+            background: transparent !important;
+            opacity: 1;
+        }
+        
+        .s7tv-picker {
+            position: absolute !important;
+            z-index: 999999 !important;
+        
+            right: 0 !important;
+            bottom: calc(100% + 8px) !important;
+        
+            width: 280px !important;
+            max-height: 350px !important;
+            padding: 10px !important;
+        
+            background: #202127 !important;
+            color: #fff !important;
+        
+            border: 1px solid rgba(255,255,255,.12) !important;
+            border-radius: 9px !important;
+            box-shadow: 0 5px 25px rgba(0,0,0,.4) !important;
+        
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+        
+        .s7tv-picker[hidden] {
+            display: none !important;
+        }
 
-            .s7tv-picker-button {
-                flex: 0 0 auto;
-                background: transparent;
-                border: none;
-                outline: none;
-                box-shadow: none;
-                color: inherit;
-                opacity: 0.65;
-                cursor: pointer;
-                font-size: 12px;
-                font-weight: 600;
-                padding: 0 9px;
-                margin: 0;
-                transition: opacity .15s;
-            }
-            
-            .s7tv-picker-button:hover {
-                opacity: 1;
-            }
-            
-            .s7tv-picker {
-                position: absolute;
-                z-index: 999999;
-                right: 38px;
-                bottom: calc(100% + 8px);
-            }
-
-            .s7tv-picker[hidden] {
-                display: none;
-            }
-
-            .s7tv-search {
-                width: 100%;
-                box-sizing: border-box;
-                padding: 8px 10px;
-                border: 1px solid #41434c;
-                border-radius: 6px;
-                outline: none;
-                background: #292b33;
-                color: #fff;
-                font-size: 13px;
-            }
-
-            .s7tv-grid {
-                display: grid;
-                grid-template-columns: repeat(5, 1fr);
-                gap: 5px;
-                overflow-y: auto;
-                min-height: 0;
-            }
-
-            .s7tv-item {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                height: 43px;
-                border: none;
-                border-radius: 6px;
-                background: transparent;
-                cursor: pointer;
-            }
-
-            .s7tv-item:hover {
-                background: rgba(255,255,255,.12);
-            }
-
-            .s7tv-item img {
-                max-width: 38px;
-                max-height: 36px;
-                object-fit: contain;
-            }
-
-            .s7tv-empty {
-                color: #999;
-                font-size: 12px;
-                text-align: center;
-                padding: 15px 0;
-                grid-column: 1 / -1;
-            }
+        .s7tv-search {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border: 1px solid #41434c;
+            border-radius: 6px;
+            outline: none;
+            background: #292b33;
+            color: #fff;
+            font-size: 13px;
+        }
+        
+        .s7tv-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        .s7tv-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 43px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            cursor: pointer;
+        }
+        
+        .s7tv-item:hover {
+            background: rgba(255,255,255,.12);
+        }
+        
+        .s7tv-item img {
+            max-width: 38px;
+            max-height: 36px;
+            object-fit: contain;
+        }
+        
+        .s7tv-empty {
+            color: #999;
+            font-size: 12px;
+            text-align: center;
+            padding: 15px 0;
+            grid-column: 1 / -1;
+        }
         `;
 
         document.head.appendChild(style);
@@ -371,15 +441,19 @@
         const submitButton = form.querySelector('button[type="submit"]');
 
         if (!submitButton) return;
-        
+
         if (getComputedStyle(form).position === 'static') {
             form.style.position = 'relative';
         }
         
-        // Кнопка 7TV между полем ввода и отправкой
-        form.insertBefore(button, submitButton);
+        const wrapper = document.createElement('div');
+        wrapper.className = 's7tv-input-wrap';
         
-        // Окно выбора смайликов
+        form.insertBefore(wrapper, input);
+        
+        wrapper.appendChild(input);
+        wrapper.appendChild(button);
+        
         form.appendChild(panel);
 
         function renderGrid(query = '') {
