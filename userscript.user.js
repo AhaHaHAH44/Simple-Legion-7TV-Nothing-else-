@@ -46,7 +46,7 @@
     
     let picker = null;
     let observer = null;
-    let observedChat = null;
+    let observedChats = [];
     
     let imageCache = new Map();
     let imageRequests = new Map();
@@ -596,56 +596,43 @@
     function processAddedNode(node) {
         if (node.nodeType === Node.TEXT_NODE) {
             const message = node.parentElement?.closest('li.md');
-        
+    
             if (message) {
                 highlightMentions(message);
                 replaceEmotes(message);
             }
-        
+    
             return;
-}
+        }
     
-        if (node instanceof Element) {
-
-            if (node.matches('li.md')) {
-                highlightMentions(node);
-                replaceEmotes(node);
-                return;
-            }
-            // Если добавлено само сообщение.
-            if (node.matches('li.md')) {
-                replaceEmotes(node);
-                return;
-            }
+        if (!(node instanceof Element)) return;
     
-            // Если добавлена часть уже существующего сообщения.
-            const parentMessage = node.closest('li.md');
-
-            if (parentMessage) {
-                highlightMentions(parentMessage);
-                replaceEmotes(parentMessage);
-                return;
-            }
+        if (node.matches('li.md')) {
+            highlightMentions(node);
+            replaceEmotes(node);
+            return;
+        }
     
-            if (parentMessage) {
-                replaceEmotes(parentMessage);
-                return;
-            }
+        const parentMessage = node.closest('li.md');
     
-            // Если добавлена обёртка с несколькими сообщениями.
-            const messages = node.querySelectorAll('li.md');
+        if (parentMessage) {
+            highlightMentions(parentMessage);
+            replaceEmotes(parentMessage);
+            return;
+        }
     
-            if (messages.length) {
-                messages.forEach(message => {
-                    highlightMentions(message);
-                    replaceEmotes(message);
-                });
-            } else {
-                replaceEmotes(node);
-            }
+        const messages = node.querySelectorAll('li.md');
+    
+        if (messages.length) {
+            messages.forEach(message => {
+                highlightMentions(message);
+                replaceEmotes(message);
+            });
+        } else {
+            highlightMentions(node);
+            replaceEmotes(node);
         }
     }
-
     // ==========================================
     // STYLES
     // ==========================================
@@ -1234,16 +1221,22 @@
     function startObserver() {
         if (observer) observer.disconnect();
     
-        const chat = document.querySelector(CONFIG.chat);
-        observedChat = chat;
+        const chats = Array.from(
+            document.querySelectorAll(CONFIG.chat)
+        );
     
-        if (!chat) return;
+        observedChats = chats;
     
-        // Обрабатываем старые сообщения без уведомлений.
-        processChat();
+        if (!chats.length) return;
     
-        // Запоминаем их, чтобы после перезагрузки не было звука.
-        rememberExistingMessages(chat);
+        // Сбрасываем список только один раз.
+        seenMessageIds.clear();
+    
+        // Обрабатываем все вкладки чата.
+        for (const chat of chats) {
+            processChat(chat);
+            rememberExistingMessages(chat);
+        }
     
         observer = new MutationObserver(mutations => {
             for (const mutation of mutations) {
@@ -1254,10 +1247,13 @@
             }
         });
     
-        observer.observe(chat, {
-            childList: true,
-            subtree: true
-        });
+        // Следим за изменениями во всех чатах.
+        for (const chat of chats) {
+            observer.observe(chat, {
+                childList: true,
+                subtree: true
+            });
+        }
     }
 
     // ==========================================
@@ -1375,7 +1371,6 @@
     }
 
     function rememberExistingMessages(chat) {
-        seenMessageIds.clear();
 
         chat.querySelectorAll('li.md').forEach(message => {
             const id = message.dataset.mid;
@@ -1468,17 +1463,25 @@
         // MultiDonate can recreate chat elements.
         setInterval(() => {
             createPicker();
-
-            const chat = document.querySelector(CONFIG.chat);
-
-            if (chat && (!observer || !observerRootIs(chat))) {
+        
+            const chats = Array.from(
+                document.querySelectorAll(CONFIG.chat)
+            );
+        
+            if (!observer || !observerRootsAre(chats)) {
                 startObserver();
             }
         }, 2000);
     }
 
-    function observerRootIs(chat) {
-        return observer && observedChat === chat && chat.isConnected;
+    function observerRootsAre(chats) {
+        if (!observer || chats.length !== observedChats.length) {
+            return false;
+        }
+    
+        return chats.every((chat, index) =>
+            chat === observedChats[index] && chat.isConnected
+        );
     }
 
     init();
