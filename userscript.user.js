@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Simple Legion 7TV
 // @namespace    https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-
-// @version      1.3.0
+// @version      1.5.0
 // @description  Minimal 7TV emote support for Legion Game
 // @author       Sectwi1l
 // @homepageURL  https://github.com/AhaHaHAH44/Simple-Legion-7TV-Nothing-else-
@@ -484,8 +484,86 @@
         }
     }
 
+    function highlightMentions(root) {
+        if (!root) return;
+    
+        const walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode(node) {
+                    const parent = node.parentElement;
+    
+                    if (!parent || !node.nodeValue.trim()) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+    
+                    if (
+                        parent.closest(
+                            'script, style, textarea, input, button, a, .s7tv-emote, .s7tv-mention'
+                        )
+                    ) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+    
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            }
+        );
+    
+        const nodes = [];
+    
+        while (walker.nextNode()) {
+            nodes.push(walker.currentNode);
+        }
+    
+        const mentionRegex = /@[A-Za-zА-Яа-яЁё0-9_]+/gu;
+    
+        for (const node of nodes) {
+            const text = node.nodeValue;
+    
+            if (!mentionRegex.test(text)) {
+                mentionRegex.lastIndex = 0;
+                continue;
+            }
+    
+            mentionRegex.lastIndex = 0;
+    
+            const fragment = document.createDocumentFragment();
+            let lastIndex = 0;
+            let match;
+    
+            while ((match = mentionRegex.exec(text)) !== null) {
+                if (match.index > lastIndex) {
+                    fragment.appendChild(
+                        document.createTextNode(
+                            text.slice(lastIndex, match.index)
+                        )
+                    );
+                }
+    
+                const mention = document.createElement('span');
+                mention.className = 's7tv-mention';
+                mention.textContent = match[0];
+    
+                fragment.appendChild(mention);
+    
+                lastIndex = mentionRegex.lastIndex;
+            }
+    
+            if (lastIndex < text.length) {
+                fragment.appendChild(
+                    document.createTextNode(text.slice(lastIndex))
+                );
+            }
+    
+            node.replaceWith(fragment);
+        }
+    }
+
     function processChat(root = document.querySelector(CONFIG.chat)) {
         if (root) {
+            highlightMentions(root);
             replaceEmotes(root);
         }
     }
@@ -503,6 +581,12 @@
         }
     
         if (node instanceof Element) {
+
+            if (node.matches('li.md')) {
+                highlightMentions(node);
+                replaceEmotes(node);
+                return;
+            }
             // Если добавлено само сообщение.
             if (node.matches('li.md')) {
                 replaceEmotes(node);
@@ -511,6 +595,12 @@
     
             // Если добавлена часть уже существующего сообщения.
             const parentMessage = node.closest('li.md');
+
+            if (parentMessage) {
+                highlightMentions(parentMessage);
+                replaceEmotes(parentMessage);
+                return;
+            }
     
             if (parentMessage) {
                 replaceEmotes(parentMessage);
@@ -521,7 +611,10 @@
             const messages = node.querySelectorAll('li.md');
     
             if (messages.length) {
-                messages.forEach(message => replaceEmotes(message));
+                messages.forEach(message => {
+                    highlightMentions(message);
+                    replaceEmotes(message);
+                });
             } else {
                 replaceEmotes(node);
             }
@@ -535,13 +628,21 @@
     function addStyles() {
         const style = document.createElement('style');
 
-        style.textContent = `
-            .s7tv-input-wrap {
+        style.textContent = ` 
+        .s7tv-input-wrap {
             position: relative !important;
             flex: 1 1 auto !important;
             min-width: 0 !important;
             display: flex !important;
             align-items: center !important;
+        }
+
+        .s7tv-mention {
+            color: #ffb4d2 !important;
+            font-weight: 700 !important;
+            text-shadow:
+                0 0 4px rgba(255, 130, 185, 0.45),
+                0 0 9px rgba(255, 105, 170, 0.25) !important;
         }
         
         .s7tv-input-wrap input {
