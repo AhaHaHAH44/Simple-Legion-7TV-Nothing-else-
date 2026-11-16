@@ -444,9 +444,9 @@
                     img.height = 28;
                     img.style.height = '28px';
                     img.style.width = 'auto';
-                    img.style.maxWidth = '64px';
-                    img.style.aspectRatio = '1 / 1';
-                    img.style.objectFit = 'contain';
+                    img.style.maxWidth = 'none';
+                    img.style.aspectRatio = 'auto';
+                    img.style.objectFit = 'fill';
                     img.style.verticalAlign = 'middle';
 
                     img.className = 's7tv-emote';
@@ -572,13 +572,14 @@
     function processAddedNode(node) {
         if (node.nodeType === Node.TEXT_NODE) {
             const message = node.parentElement?.closest('li.md');
-    
+        
             if (message) {
+                highlightMentions(message);
                 replaceEmotes(message);
             }
-    
+        
             return;
-        }
+}
     
         if (node instanceof Element) {
 
@@ -905,7 +906,7 @@
             min-height: 28px !important;
             max-height: 28px !important;
         
-            max-width: 64px !important;
+            max-width: none !important;
         
             object-fit: contain !important;
             object-position: center !important;
@@ -1257,10 +1258,28 @@
         once: true
     });
 
+    document.addEventListener('visibilitychange', () => {
+        if (
+            document.visibilityState === 'visible' &&
+            meowAudioContext &&
+            meowAudioContext.state === 'suspended'
+        ) {
+            meowAudioContext.resume().catch(error => {
+                console.warn('[7TV] Audio resume failed:', error);
+            });
+        }
+    });
+
     function playMeow() {
-        console.log('[Simple Legion 7TV] playMeow вызвана!');
+    console.log('[Simple Legion 7TV] playMeow вызвана!');
+
+    if (!meowAudioContext) return;
+
+    function playSound() {
         if (!meowAudioContext ||
-            meowAudioContext.state !== 'running') return;
+            meowAudioContext.state !== 'running') {
+            return;
+        }
 
         const ctx = meowAudioContext;
         const now = ctx.currentTime;
@@ -1284,6 +1303,19 @@
         oscillator.start(now);
         oscillator.stop(now + 0.43);
     }
+
+    if (meowAudioContext.state === 'suspended') {
+        meowAudioContext.resume()
+            .then(playSound)
+            .catch(error => {
+                console.warn('[7TV] Не удалось возобновить звук:', error);
+            });
+
+        return;
+    }
+
+    playSound();
+}
 
     function messageMentionsMe(message) {
         const nicknameElement = document.querySelector('.whn');
