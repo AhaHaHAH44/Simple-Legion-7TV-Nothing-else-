@@ -567,6 +567,30 @@
             replaceEmotes(root);
         }
     }
+
+    function refreshChatAppearance() {
+        // Восстанавливаем CSS, если сайт удалил стили.
+        addStyles();
+    
+        const chat = document.querySelector(CONFIG.chat);
+        if (!chat) return;
+    
+        // Повторно проверяем сообщения.
+        highlightMentions(chat);
+        replaceEmotes(chat);
+    }
+    
+    // Пользователь вернулся на вкладку.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            setTimeout(refreshChatAppearance, 150);
+        }
+    });
+    
+    // Пользователь вернулся в окно браузера.
+    window.addEventListener('focus', () => {
+        setTimeout(refreshChatAppearance, 150);
+    });
     
     // Обрабатываем только добавленные узлы.
     function processAddedNode(node) {
@@ -627,7 +651,10 @@
     // ==========================================
 
     function addStyles() {
+        if (document.getElementById('s7tv-styles')) return;
+    
         const style = document.createElement('style');
+        style.id = 's7tv-styles';
 
         style.textContent = ` 
         .s7tv-input-wrap {
@@ -642,8 +669,9 @@
             color: #ffb4d2 !important;
             font-weight: 700 !important;
             text-shadow:
-                0 0 4px rgba(255, 130, 185, 0.45),
-                0 0 9px rgba(255, 105, 170, 0.25) !important;
+                0 0 3px rgba(255, 130, 185, 0.65),
+                0 0 7px rgba(255, 105, 170, 0.45),
+                0 0 12px rgba(255, 105, 170, 0.2) !important;
         }
         
         .s7tv-input-wrap input {
