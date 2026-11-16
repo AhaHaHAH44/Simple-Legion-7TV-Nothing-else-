@@ -316,8 +316,52 @@
     // MESSAGE RENDERING
     // ==========================================
 
+    function captureChatScroll() {
+        const chat = document.querySelector(CONFIG.chat);
+        if (!chat) return [];
+    
+        const states = [];
+        let element = chat;
+    
+        while (element && element !== document.body) {
+            if (element instanceof HTMLElement && element.scrollHeight > element.clientHeight + 1) {
+                states.push({
+                    element,
+                    scrollTop: element.scrollTop,
+                    distanceFromBottom:
+                        element.scrollHeight - element.clientHeight - element.scrollTop
+                });
+            }
+    
+            element = element.parentElement;
+        }
+    
+        return states;
+    }
+    
+    function restoreChatScroll(states) {
+        requestAnimationFrame(() => {
+            for (const state of states) {
+                const element = state.element;
+    
+                if (!element.isConnected) continue;
+    
+                // Если пользователь был внизу — сохраняем положение внизу.
+                if (state.distanceFromBottom <= 40) {
+                    element.scrollTop = element.scrollHeight - element.clientHeight;
+                } else {
+                    // Иначе возвращаем прежнюю позицию чтения.
+                    element.scrollTop = state.scrollTop;
+                }
+            }
+        });
+    }
+
     function replaceEmotes(root) {
         if (!root || !emoteNames.length) return;
+    
+        const scrollStates = captureChatScroll();
+        let wasChanged = false;
 
         const walker = document.createTreeWalker(
             root,
@@ -397,10 +441,10 @@
 
                 if (emote) {
                     const img = document.createElement('img');
-                    img.width = 32;
-                    img.height = 32;
-                    img.style.width = '1.8em';
-                    img.style.height = '1.8em';
+                    img.width = 28;
+                    img.height = 28;
+                    img.style.width = '28px';
+                    img.style.height = '28px';
                     img.style.aspectRatio = '1 / 1';
                     img.style.objectFit = 'contain';
                     img.style.verticalAlign = 'middle';
@@ -432,7 +476,11 @@
 
             if (fragment.childNodes.length) {
                 node.replaceWith(fragment);
+                wasChanged = true;
             }
+        }
+        if (wasChanged) {
+            restoreChatScroll(scrollStates);
         }
     }
 
@@ -445,17 +493,38 @@
     // Обрабатываем только добавленные узлы.
     function processAddedNode(node) {
         if (node.nodeType === Node.TEXT_NODE) {
-            const parent = node.parentElement;
+            const message = node.parentElement?.closest('li.md');
     
-            if (parent) {
-                replaceEmotes(parent);
+            if (message) {
+                replaceEmotes(message);
             }
     
             return;
         }
     
         if (node instanceof Element) {
-            replaceEmotes(node);
+            // Если добавлено само сообщение.
+            if (node.matches('li.md')) {
+                replaceEmotes(node);
+                return;
+            }
+    
+            // Если добавлена часть уже существующего сообщения.
+            const parentMessage = node.closest('li.md');
+    
+            if (parentMessage) {
+                replaceEmotes(parentMessage);
+                return;
+            }
+    
+            // Если добавлена обёртка с несколькими сообщениями.
+            const messages = node.querySelectorAll('li.md');
+    
+            if (messages.length) {
+                messages.forEach(message => replaceEmotes(message));
+            } else {
+                replaceEmotes(node);
+            }
         }
     }
 
@@ -729,19 +798,17 @@
         .s7tv-emote {
             display: inline-block !important;
         
-            /* Одинаковый квадрат для всех смайликов */
-            width: 1.8em !important;
-            height: 1.8em !important;
-            min-width: 1.8em !important;
-            min-height: 1.8em !important;
-            max-width: 1.8em !important;
-            max-height: 1.8em !important;
+            width: 28px !important;
+            height: 28px !important;
         
-            /* Вписываем даже длинные изображения в квадрат */
+            min-width: 28px !important;
+            min-height: 28px !important;
+            max-width: 28px !important;
+            max-height: 28px !important;
+        
             object-fit: contain !important;
             object-position: center !important;
         
-            /* Не даём изображению менять высоту строки */
             vertical-align: middle !important;
             flex-shrink: 0 !important;
         
