@@ -441,10 +441,10 @@
 
                 if (emote) {
                     const img = document.createElement('img');
-                    img.width = 28;
                     img.height = 28;
-                    img.style.width = '28px';
                     img.style.height = '28px';
+                    img.style.width = 'auto';
+                    img.style.maxWidth = '64px';
                     img.style.aspectRatio = '1 / 1';
                     img.style.objectFit = 'contain';
                     img.style.verticalAlign = 'middle';
@@ -798,13 +798,13 @@
         .s7tv-emote {
             display: inline-block !important;
         
-            width: 28px !important;
             height: 28px !important;
+            width: auto !important;
         
-            min-width: 28px !important;
             min-height: 28px !important;
-            max-width: 28px !important;
             max-height: 28px !important;
+        
+            max-width: 64px !important;
         
             object-fit: contain !important;
             object-position: center !important;
