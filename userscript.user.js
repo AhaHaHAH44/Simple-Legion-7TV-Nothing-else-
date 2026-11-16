@@ -1260,86 +1260,96 @@
     // MEOW NOTIFICATIONS
     // ==========================================
 
+    // Разблокировка аудио после взаимодействия пользователя.
     function unlockMeowAudio() {
-        if (meowAudioUnlocked) return;
-
         const AudioContextClass =
             window.AudioContext || window.webkitAudioContext;
 
-        if (!AudioContextClass) return;
-
-        meowAudioContext = new AudioContextClass();
-        meowAudioContext.resume();
-
-        meowAudioUnlocked = true;
-    }
-
-    document.addEventListener('pointerdown', unlockMeowAudio, {
-        once: true
-    });
-
-    document.addEventListener('keydown', unlockMeowAudio, {
-        once: true
-    });
-
-    document.addEventListener('visibilitychange', () => {
-        if (
-            document.visibilityState === 'visible' &&
-            meowAudioContext &&
-            meowAudioContext.state === 'suspended'
-        ) {
-            meowAudioContext.resume().catch(error => {
-                console.warn('[7TV] Audio resume failed:', error);
-            });
-        }
-    });
-
-    function playMeow() {
-    console.log('[Simple Legion 7TV] playMeow вызвана!');
-
-    if (!meowAudioContext) return;
-
-    function playSound() {
-        if (!meowAudioContext ||
-            meowAudioContext.state !== 'running') {
+        if (!AudioContextClass) {
+            console.warn('[7TV] AudioContext не поддерживается');
             return;
         }
 
-        const ctx = meowAudioContext;
-        const now = ctx.currentTime;
+        if (!meowAudioContext) {
+            meowAudioContext = new AudioContextClass();
+        }
 
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        oscillator.type = 'sine';
-
-        oscillator.frequency.setValueAtTime(650, now);
-        oscillator.frequency.exponentialRampToValueAtTime(950, now + 0.12);
-        oscillator.frequency.exponentialRampToValueAtTime(480, now + 0.38);
-
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.22, now + 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
-
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-
-        oscillator.start(now);
-        oscillator.stop(now + 0.43);
+        if (meowAudioContext.state === 'suspended') {
+            meowAudioContext.resume()
+                .then(() => {
+                    meowAudioUnlocked = true;
+                    console.log('[7TV] Audio unlocked!');
+                })
+                .catch(error => {
+                    console.warn('[7TV] Audio unlock failed:', error);
+                });
+        } else if (meowAudioContext.state === 'running') {
+            meowAudioUnlocked = true;
+        }
     }
 
-    if (meowAudioContext.state === 'suspended') {
-        meowAudioContext.resume()
-            .then(playSound)
-            .catch(error => {
-                console.warn('[7TV] Не удалось возобновить звук:', error);
-            });
+    // Пользовательское взаимодействие разблокирует звук.
+    document.addEventListener('pointerdown', unlockMeowAudio);
+    document.addEventListener('keydown', unlockMeowAudio);
 
-        return;
+    // Воспроизведение звука упоминания.
+    function playMeow() {
+        console.log('[7TV] Попытка воспроизвести мяуканье');
+
+        if (!meowAudioContext) {
+            console.warn('[7TV] Сначала необходимо разблокировать аудио');
+            return;
+        }
+
+        function playSound() {
+            if (meowAudioContext.state !== 'running') {
+                console.warn('[7TV] AudioContext не запущен');
+                return;
+            }
+
+            const ctx = meowAudioContext;
+            const now = ctx.currentTime;
+
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            oscillator.type = 'sine';
+
+            oscillator.frequency.setValueAtTime(650, now);
+            oscillator.frequency.exponentialRampToValueAtTime(
+                950, now + 0.12
+            );
+            oscillator.frequency.exponentialRampToValueAtTime(
+                480, now + 0.38
+            );
+
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.22, now + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+
+            oscillator.start(now);
+            oscillator.stop(now + 0.43);
+
+            console.log('[7TV] Meow played!');
+        }
+
+        // Если браузер приостановил аудиоконтекст,
+        // пробуем восстановить его.
+        if (meowAudioContext.state === 'suspended') {
+            meowAudioContext.resume()
+                .then(playSound)
+                .catch(error => {
+                    console.warn('[7TV] Audio resume failed:', error);
+                });
+
+            return;
+        }
+
+        playSound();
     }
-
-    playSound();
-}
 
     function messageMentionsMe(message) {
         const nicknameElement = document.querySelector('.whn');
